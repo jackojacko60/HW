@@ -1,0 +1,223 @@
+<html>
+
+  <head>
+  <style>
+      .toggle{
+          position: relative;
+          top: 50px;
+          left: 170px;
+      }
+
+      .style{
+        position: relative;
+        top: 50px;
+        left: 200px;
+      }
+      .n3{
+        position: relative;
+        top: 230px;
+        left: 190px;
+      }
+      .n6{
+        position: relative;
+        top: 362px;
+        left: 52px;
+      }
+      .n9{
+        position: relative;
+        top: 230px;
+        left: -90px;
+      }
+      .n12{
+        position: relative;
+        top: 100px;
+        left: 20px;
+      }
+  </style>
+  </head>
+
+  <body>
+    <button class="toggle" id="toggle" style="width:20%">Turn toggle</button>
+    <button class="style" id="style" style="width:20%">style change </button>
+    <a class="n3"> 3 </a>
+    <a class="n6"> 6 </a>
+    <a class="n9"> 9 </a>
+    <a class="n12"> 12 </a>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/107/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script>
+    		var renderer, scene, camera;
+        var controls;
+        var angle,x = 0;
+        var ushape,ushape3,circle ;
+        var turn = true;
+        var style = 1;
+        init();
+        animate();
+
+        $("#toggle").click(function() {
+          if(turn)	$("#toggle").text("Turn");
+          else $("#toggle").text("Stop");
+          turn = !turn;
+
+        });
+        $("#style").click(function() {
+          if(style==1)	$("#style").text("style 2");
+          else if(style==2) $("#style").text("style 3");
+          else $("#style").text("style 1");
+          style += 1;
+          if (style > 3) style = 1;
+        });
+
+        function init() {
+
+          angle = Math.PI/2+Math.PI*2;
+
+          renderer = new THREE.WebGLRenderer();
+          document.body.appendChild(renderer.domElement);
+          var width = window.innerWidth;
+          var height = window.innerHeight;
+
+          renderer.setSize(width, height);
+
+          renderer.setClearColor(0x888888);
+
+          scene = new THREE.Scene();
+          var grid = new THREE.GridHelper(200, 20, 'red', 'white');
+          scene.add(grid);
+          var axes = new THREE.AxesHelper(5);
+          scene.add(axes);
+
+          camera = new THREE.PerspectiveCamera(35, width / height, 1, 3000);
+          camera.position.y = 0;
+          camera.position.z = 400;
+          camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+          controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+
+          /////
+         // else {
+            //scene.remove(circle)
+            var geometry = new THREE.CircleBufferGeometry(80, 32);
+            var material = new THREE.MeshBasicMaterial({
+              color: "purple"
+            });
+            circle = new THREE.Mesh(geometry, material);
+            scene.add(circle);
+            // build U-shape
+            ushape = new THREE.Group();
+
+
+            var mat = new THREE.MeshNormalMaterial();
+            var base = new THREE.Mesh(new THREE.BoxGeometry(60, 10, 10), mat);
+            base.position.set(30, 0, 10);
+            ushape.add(base);
+
+            var geometry = new THREE.TetrahedronGeometry(10, 0);
+            var mat = new THREE.MeshNormalMaterial();
+            var circle3 = new THREE.Mesh(geometry, mat);
+            circle3.position.set(65, 0, 10);
+            circle3.rotation.x = Math.PI / 2 * 4.5;
+            ushape.add(circle3);
+
+            scene.add(ushape);
+
+            window.addEventListener('resize', onWindowResize, false);
+
+          //}
+        }
+
+        function onWindowResize() {
+
+          var width = window.innerWidth;
+          var height = window.innerHeight;
+          camera.aspect = width / height;
+          camera.updateProjectionMatrix();
+          renderer.setSize(width, height);
+
+        }
+        function sleep(stoptime){
+            var start = Date.now();
+            for(var i=0 ; i < 1e7 ; i++){
+                if(Date.now() - start >= stoptime) break;
+            }
+        }
+        var starttime,ny=0,angle2;
+        function animate() {
+
+          if(style==1){
+            if(ny==1){
+              angle+=Math.PI/2;
+              ny=0;
+            }
+              scene.remove(ushape3);
+              scene.add(ushape);
+              scene.add(circle );
+          }
+          else if(style==2){
+              if(ny==1){
+                  angle+=Math.PI/2;
+                  ny=0;
+              }
+              scene.remove(ushape3);
+
+          }
+          else if(style==3){
+
+                scene.remove(circle );
+                scene.remove(ushape);
+                scene.remove(ushape3);
+
+                 var geometry = new THREE.CircleGeometry(80, 32, Math.PI/2 , angle);
+                 var material = new THREE.MeshBasicMaterial({color: "gray"});
+                 var circle2 = new THREE.Mesh(geometry, material);
+
+                 var geometry2 = new THREE.CircleGeometry(80, 32);
+                 var material2 = new THREE.MeshBasicMaterial({color: "red"});
+                 var back = new THREE.Mesh(geometry2, material2);
+                 circle2.position.set(0,0,1);
+                 //circle2.rotation.z += Math.PI;
+                 ushape3 = new THREE.Group();
+                ushape3.add(circle2);
+                ushape3.add(back);
+                scene.add(ushape3);
+           }
+          if (turn) {
+            if (style == 1) angle -= Math.PI * 2 / 60 / 60;
+            else if(style==2){
+                sleep(1000);
+                angle -= Math.PI * 2 / 60 ;
+            }
+            else if (style == 3){ 
+                if(ny==0){
+                    ny=1;
+                    angle-=Math.PI/2;
+
+                }
+                angle -= (Math.PI * 2 / 60 /60);
+
+                //x -= 0.05/29;
+                //if(x<=0) x=Math.PI*2;
+            }
+            //console.log(angle);
+            if(angle<=0) angle=Math.PI*2;
+          }
+          //console.log(angle);
+          requestAnimationFrame(animate);
+          render();
+          ushape.rotation.z = angle;
+
+        }
+
+        function render() {
+
+          renderer.render(scene, camera);
+
+        }
+
+    </script>
+  </body>
+
+</html>
