@@ -28,7 +28,7 @@
 
   <body>
     <div class="test" id="test"><button>start</button></div>
-    <div class="game" id="game">遊戲方法:<br> 車身:W往前 S往後 A左轉 D右轉<br>砲塔: Q左旋轉 E右旋轉 Z上旋轉 C下旋轉</div>
+    <div class="game" id="game">遊戲方法:<br> 車身:W往前 S往後 A左轉 D右轉<br>砲塔: Q左旋轉 E右旋轉 Z上旋轉 C下旋轉<br>X發射</div>
     <div class="score" id="score">score: 0</div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/109/three.min.js"></script>
