@@ -42,15 +42,17 @@
         ball;
       var keyboard = new KeyboardState();
       class Ball {
-        constructor(mesh, x = 0, y = 0, z = 0) {
+        constructor(mesh, x = 0, y = 0, z = 0, ver = 0) {
           this.mesh = mesh;
           scene.add(this.mesh);
-          this.pos = new THREE.Vector3(x + Math.sin(turret.rotation.y + Math.PI / 2 + tank.rotation.y) * 17.5, y, z + Math.cos(turret.rotation.y + Math.PI / 2 + tank.rotation.y) * 17.5); // 初始位置
+          this.pos = new THREE.Vector3(x, y, z);
+          /*this.pos = new THREE.Vector3(x+Math.sin(turret.rotation.y+Math.PI/2+tank.rotation.y)*17.5,y,z+Math.cos(turret.rotation.y+Math.PI/2+tank.rotation.y)*17.5);*/ // 初始位置
           //tank 位置為物體正中心點 取tank.position
           //因為須由砲管cannon前端發射 所以加上cannon面對的向量
           //算法同下初速算法 
           //y初始位置 = turn.rotation.z*10+15
-          this.vel = new THREE.Vector3(Math.sin(turret.rotation.y + Math.PI / 2 + tank.rotation.y) * 40, Math.sin(turn.rotation.z) * 40, Math.cos(turret.rotation.y + Math.PI / 2 + tank.rotation.y) * 40); // 初速
+          this.vel = ver.normalize().multiplyScalar(40); // 單位向量化 * 10
+          /*this.vel = new THREE.Vector3(Math.sin(turret.rotation.y+Math.PI/2+tank.rotation.y)*40,Math.sin(turn.rotation.z)*40,Math.cos(turret.rotation.y+Math.PI/2+tank.rotation.y)*40);*/ // 初速
           //以turret旋轉y +tank旋轉y = 總旋轉 y 
           //加上偏差Math.PI/2 90度角 
           //取cos 和 sin 作為z 和 x 向量
@@ -94,7 +96,9 @@
       function buildParts() {
         var parts = [];
 
-        var mat = new THREE.MeshNormalMaterial();
+        var mat = new THREE.MeshPhongMaterial({
+          color: 0x05f0c9
+        });
         var base = new THREE.Object3D();
         var baseMesh = new THREE.Mesh(new THREE.BoxGeometry(40, 10, 20), mat);
         base.add(baseMesh);
@@ -165,8 +169,13 @@
         controls = new THREE.OrbitControls(camera, renderer.domElement);
         window.addEventListener('resize', onWindowResize, false);
         ////////////////////////////////////////////////////////////////
-        ball = new THREE.Mesh(new THREE.SphereGeometry(2, 5, 5),
-          new THREE.MeshNormalMaterial());
+        var light = new THREE.PointLight(0xffffff);
+        light.position.set(-30, 30, 50);
+        scene.add(light);
+        ball = new THREE.Mesh(new THREE.SphereGeometry(2, 32, 32),
+          new THREE.MeshPhongMaterial({
+            color: 0x710fb8
+          }));
 
         clock = new THREE.Clock();
         tank = buildTank();
@@ -191,8 +200,9 @@
         var x = Math.random() * 200 - 100,
           z = Math.random() * 200 - 100,
           y = Math.random() * 50;
-        bu = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshNormalMaterial({
-          side: THREE.DoubleSide
+        bu = new THREE.Mesh(new THREE.BoxGeometry(10, 10, 10), new THREE.MeshPhongMaterial({
+          side: THREE.DoubleSide,
+          Color: 0x22a87e
         }));
         bu.position.x = x;
         bu.position.z = z;
@@ -226,7 +236,12 @@
         if (keyboard.pressed("Z")) turn.rotation.z += 0.1;
         if (keyboard.pressed("C")) turn.rotation.z -= 0.1;
         if (keyboard.down("X")) {
-          balls.push(new Ball(ball.clone(), tank.position.x, turn.rotation.z * 10 + 15, tank.position.z));
+          /*balls.push (new Ball (ball.clone(),tank.position.x ,turn.rotation.z*10+15, tank.position.z));*/
+          var thead1 = cannon.localToWorld(new THREE.Vector3(10, 0, 0));
+          var thead2 = cannon.localToWorld(new THREE.Vector3(0, 0, 0));
+          ball.position.copy(thead1);
+          thead1.sub(thead2);
+          balls.push(new Ball(ball.clone(), ball.position.x, ball.position.y, ball.position.z, thead1));
         }
         checkmax();
         if (ny) {
