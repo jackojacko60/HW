@@ -1,13 +1,32 @@
 <html>
 
   <head>
+    <style>
+      .speed {
+        position: absolute;
+        text-align: center;
+        left: 20px;
+        top: 520px;
+        font-size: 2em;
+      }
 
+      .touch {
+        position: absolute;
+        text-align: center;
+        left: 20px;
+        top: 20px;
+        font-size: 2em;
+	color:white;
+      }
+
+    </style>
   </head>
 
   <body>
-    <div class="test" id="test"><button>start</button></div>
 
 
+    <div class="speed" id="speed">speed: 0.1</div>
+    <div class="touch" id="touch">碰撞次數: 0</div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/109/three.min.js"></script>
     <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
@@ -16,7 +35,10 @@
     <script src="https://raw.githack.com/mrdoob/three.js/dev/examples/js/loaders/OBJLoader.js"></script>
     <script>
       var renderer, scene, camera2, camera, controls, baseMesh, speed = 0.01,
-        modelName = "toycar";
+        modelName = "toycar",
+        touchtime = 0,
+        touchny = 1,
+        tt;
       var keyboard = new KeyboardState();
       var car, theObject, setbus = [12],
         ny2 = 0;
@@ -47,6 +69,22 @@
             bumax++;
           }
         }
+        ////////
+        let loader = new THREE.TextureLoader();
+        loader.crossOrigin = '';
+        texture = loader.load('https://i.imgur.com/omX5Drl.png');
+
+        var texMat = new THREE.MeshBasicMaterial({
+          map: texture,
+          //transparent: true,
+          alphaTest: 0.5
+        });
+
+        tree = new THREE.Mesh(new THREE.PlaneGeometry(40, 80), texMat);
+        tt = tree.clone();
+        tt.position.set(setbus[1].x, setbus[1].r + 45, setbus[1].z);
+        scene.add(tt)
+        ////////
         for (var i = 1; i < bumax; i++) {
           var bu = new THREE.Mesh(new THREE.CylinderBufferGeometry(setbus[i].r, setbus[i].r, setbus[i].r + 10, 64), new THREE.MeshPhongMaterial({
             side: THREE.DoubleSide
@@ -62,7 +100,7 @@
 
       function loadCubemap() {
 
-        var path = "https://threejs.org/examples/textures/cube/SwedishRoyalCastle/";
+        var path = "map/";
         var format = '.jpg';
         var urls = [
           path + 'px' + format, path + 'nx' + format,
@@ -90,7 +128,8 @@
         var axes = new THREE.AxesHelper(5);
         scene.add(axes);
         camera = new THREE.PerspectiveCamera(60, width / height, 1, 3000);
-        camera2 = new THREE.OrthographicCamera(100, -100, 100, -100, 1, 3000);
+        camera2 = new THREE.PerspectiveCamera(60, width / height, 1, 3000);
+        //camera2 = new THREE.OrthographicCamera(100, -100, 100, -100, 1, 3000);
         controls = new THREE.OrbitControls(camera, renderer.domElement);
         controls.enablePan = false
         //window.addEventListener('resize', onWindowResize, false);
@@ -239,7 +278,7 @@
       }
 
       function checktoutch2(i) {
-        var pos = [4];
+        var pos = [10];
         pos[0] = car.localToWorld(new THREE.Vector3(20, 0, 10));
         pos[1] = car.localToWorld(new THREE.Vector3(-20, 0, -10));
         pos[2] = car.localToWorld(new THREE.Vector3(-20, 0, 10));
@@ -247,8 +286,14 @@
         pos[4] = car.localToWorld(new THREE.Vector3(-20, 0, 0));
         pos[5] = car.localToWorld(new THREE.Vector3(20, 0, 0));
         for (var j = 0; j < 6; j++) {
-          if ((pos[j].x - setbus[i].x) * (pos[j].x - setbus[i].x) + (pos[j].z - setbus[i].z) * (pos[j].z - setbus[i].z) <= setbus[i].r * setbus[i].r)
+
+          if (((pos[j].x - setbus[i].x) * (pos[j].x - setbus[i].x) + (pos[j].z - setbus[i].z) * (pos[j].z - setbus[i].z) <= setbus[i].r * setbus[i].r) || pos[j].x >= 200 || pos[j].x <= -200 || pos[j].z >= 200 || pos[j].z <= -200) {
+            if (touchny) {
+              touchny = 0;
+              touchtime++;
+            }
             return true;
+          }
         }
         return false;
       }
@@ -274,11 +319,13 @@
         for (var i = 1; i < 11; i++) {
           if (checktoutch2(i)) {
             ny = 1;
-            //console.log("1231313");
             break;
           }
         }
-        if (!ny) ny2 = 0;
+        if (!ny) {
+          ny2 = 0;
+          touchny = 1;
+        }
         if (ny && speed < 0 && !ny2) speed = 0, ny2 = 1;
         else if (ny && speed > 0 && !ny2) speed = 0, ny2 = 2;
 
@@ -296,6 +343,8 @@
         }
         check();
         car.position.add((new THREE.Vector3(speed, 0, 0).applyAxisAngle(vector, car.rotation.y)));
+        $("#speed").text("speed: " + speed.toFixed(2));
+        $("#touch").text("碰撞次數: " + touchtime);
 
         requestAnimationFrame(animate);
         render();
@@ -313,9 +362,10 @@
         camera.position.copy(car.localToWorld(new THREE.Vector3(-80, 40, 0)));
         camera.lookAt(car.position);
         renderer.render(scene, camera);
+        tt.lookAt(camera.position);
         ///////////////////////////////
         renderer.setViewport(WW / 2, 0, WW / 2, HH);
-        camera2.position.set(car.position.x, 20, car.position.z);
+        camera2.position.set(car.position.x, 150, car.position.z);
         camera2.up.set(0, 0, -1);
         camera2.lookAt(car.position);
         renderer.render(scene, camera2);
