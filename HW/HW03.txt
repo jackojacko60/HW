@@ -1,0 +1,328 @@
+<html>
+
+  <head>
+
+  </head>
+
+  <body>
+    <div class="test" id="test"><button>start</button></div>
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/109/three.min.js"></script>
+    <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="https://jyunming-chen.github.io/tutsplus/js/KeyboardState.js"></script>
+    <script src="https://raw.githack.com/mrdoob/three.js/dev/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://raw.githack.com/mrdoob/three.js/dev/examples/js/loaders/OBJLoader.js"></script>
+    <script>
+      var renderer, scene, camera2, camera, controls, baseMesh, speed = 0.01,
+        modelName = "toycar";
+      var keyboard = new KeyboardState();
+      var car, theObject, setbus = [12],
+        ny2 = 0;
+
+
+
+      class bus {
+        constructor(x = 0, z = 0, r = 0) {
+          this.x = x;
+          this.z = z;
+          this.r = r;
+        }
+      }
+
+      function bulidbu() {
+        var bumax = 0,
+          ny, x, z, r;
+        while (bumax < 11) {
+          ny = 0, x = Math.random() * 380 - 190, z = Math.random() * 380 - 190, r = Math.random() * 20 + 5;
+          for (var j = 0; j < bumax; j++) {
+            if ((x <= setbus[j].x + setbus[j].y && x >= setbus[j].x - setbus[j].y) && (z <= setbus[j].z + setbus[j].y && z >= setbus[j].z - setbus[j].y) || (x < 20 && x > -20) || (z < 20 && z > -20)) {
+              ny = 1;
+              break;
+            }
+          }
+          if (!ny) {
+            setbus.push(new bus(x, z, r));
+            bumax++;
+          }
+        }
+        for (var i = 1; i < bumax; i++) {
+          var bu = new THREE.Mesh(new THREE.CylinderBufferGeometry(setbus[i].r, setbus[i].r, setbus[i].r + 10, 64), new THREE.MeshPhongMaterial({
+            side: THREE.DoubleSide
+          }));
+          bu.position.set(setbus[i].x, setbus[i].r / 2 + 5, setbus[i].z);
+          scene.add(bu);
+          console.log("x:" + setbus[i].x + " z:" + setbus[i].z);
+        }
+      }
+
+      init();
+      animate();
+
+      function loadCubemap() {
+
+        var path = "https://threejs.org/examples/textures/cube/SwedishRoyalCastle/";
+        var format = '.jpg';
+        var urls = [
+          path + 'px' + format, path + 'nx' + format,
+          path + 'py' + format, path + 'ny' + format,
+          path + 'pz' + format, path + 'nz' + format
+        ];
+        var loader = new THREE.CubeTextureLoader();
+        loader.setCrossOrigin('');
+        var cubeMap = loader.load(urls);
+        cubeMap.format = THREE.RGBFormat;
+        return cubeMap;
+
+      }
+
+      function init() {
+        renderer = new THREE.WebGLRenderer();
+        document.body.appendChild(renderer.domElement);
+        var width = window.innerWidth;
+        var height = window.innerHeight;
+        renderer.setSize(width, height);
+        renderer.setClearColor(0x888888);
+        scene = new THREE.Scene();
+        var grid = new THREE.GridHelper(400, 20, 'red', 'white');
+        scene.add(grid);
+        var axes = new THREE.AxesHelper(5);
+        scene.add(axes);
+        camera = new THREE.PerspectiveCamera(60, width / height, 1, 3000);
+        camera2 = new THREE.OrthographicCamera(100, -100, 100, -100, 1, 3000);
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enablePan = false
+        //window.addEventListener('resize', onWindowResize, false);
+        ////////////////////////////////////////////////////////////////
+        var light = new THREE.PointLight(0xff4fff);
+        light.position.set(40, 30, 0);
+        var light2 = new THREE.PointLight(0xff4fff);
+        light2.position.set(0, -30, 0);
+        scene.add(light2);
+        scene.add(light);
+        ///////
+        car = new THREE.Group();
+        theObject = new THREE.Object3D();
+        readModel(modelName);
+        car.add(theObject);
+        scene.add(car);
+        bulidbu();
+        //////
+        let loader = new THREE.TextureLoader()
+        loader.crossOrigin = '';
+
+        texture = loader.load('https://i.imgur.com/81hHjZB.jpg');
+        texture.repeat.set(1, 1);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        mesh = new THREE.Mesh(new THREE.PlaneGeometry(400, 400),
+          new THREE.MeshBasicMaterial({
+            map: texture
+          }))
+        mesh.rotation.x = -Math.PI / 2;
+        scene.add(mesh);
+        renderer.autoClear = false;
+        ///
+        var cubeMap = loadCubemap();
+        scene.background = cubeMap;
+      }
+
+      function readModel(modelName, targetSize = 40) {
+
+        var onProgress = function(xhr) {
+          if (xhr.lengthComputable) {
+            var percentComplete = xhr.loaded / xhr.total * 100;
+            console.log(Math.round(percentComplete, 2) + '% downloaded');
+          }
+        };
+
+        var onError = function(xhr) {};
+
+        var mtlLoader = new THREE.MTLLoader();
+        mtlLoader.setPath('objLoader/models/');
+        mtlLoader.load(modelName + '.mtl', function(materials) {
+
+          materials.preload();
+
+          var objLoader = new THREE.OBJLoader();
+          objLoader.setMaterials(materials);
+          objLoader.setPath('objLoader/models/');
+          objLoader.load(modelName + '.obj', function(object) {
+
+            unitize(object, targetSize);
+            //theObject.add ( new THREE.BoxHelper (theObject) )
+            //theObject.name = 'OBJ'
+            //scene.add (theObject);
+            theObject.setRotationFromEuler(new THREE.Euler(3.1416 / 2, 0, -3.1416 / 2, 'ZYX'))
+
+          }, onProgress, onError);
+
+
+        });
+
+      }
+
+
+      ////////////////////////////////////////
+      // wrap an Object3D around the given object
+      // so that it is centered at +Y axis
+      // 
+      function unitize(object, targetSize) {
+
+        // find bounding box of 'object'
+        var box3 = new THREE.Box3();
+        box3.setFromObject(object);
+        var size = new THREE.Vector3();
+        size.subVectors(box3.max, box3.min);
+        var center = new THREE.Vector3();
+        center.addVectors(box3.max, box3.min).multiplyScalar(0.5);
+
+        //console.log ('center: ' + center.x + ', '+center.y + ', '+center.z );
+        //console.log ('size: ' + size.x + ', ' +  size.y + ', '+size.z );
+
+        // uniform scaling according to objSize
+        var objSize = Math.max(size.x, size.y, size.z);
+        var scaleSet = targetSize / objSize;
+
+        theObject.add(object);
+        object.scale.set(scaleSet, scaleSet, scaleSet);
+        object.position.set(-center.x * scaleSet, -center.y * scaleSet, -center.z * scaleSet);
+        object.position.y += 7.5;
+        object.rotation.z += Math.PI / 2;
+        object.rotation.x += Math.PI;
+
+      }
+
+
+      function onWindowResize() {
+
+        var width = window.innerWidth;
+        var height = window.innerHeight;
+        camera.aspect = width / height;
+        camera.updateProjectionMatrix();
+        renderer.setSize(width, height);
+
+      }
+
+      function speedch() {
+        if (speed < 0) speed = -0.01;
+        else speed = 0.01;
+      }
+
+      function checktoutch(i) {
+        var max = car.localToWorld(new THREE.Vector3(20, 0, 10));
+        var min = car.localToWorld(new THREE.Vector3(-20, 0, -10));
+        var maxx = max.x - setbus[i].x,
+          maxz = (max.z - setbus[i].z) * -1,
+          minx = min.x - setbus[i].x,
+          minz = (min.z - setbus[i].z) * -1;
+        /*console.log("cir:"+setbus[i].x+" "+setbus[i].z);
+        console.log("max:"+max.x+" "+max.z);
+        console.log("min:"+min.x+" "+min.z);*/
+
+        if (maxx < 0)
+          if (maxz < 0) return ((maxx * maxx + maxz * maxz) < setbus.r * setbus.r);
+          else if (minz > 0) return ((maxx * maxx + minz * minz) < setbus.r * setbus.r);
+        else return (Math.abs(maxx) < setbus.r * setbus.r);
+        else if (minx > 0)
+          if (maxz < 0) return ((minx * minx + maxz * maxz) < setbus.r * setbus.r);
+          else if (minz > 0) return ((minx * minx + minz * minz) < setbus.r * setbus.r);
+        else return (Math.abs(minx) < setbus.r * setbus.r);
+        else
+        if (maxz < 0) return (Math.abs(maxz) < setbus.r * setbus.r);
+        else if (minz > 0) return (Math.abs(maxz) < setbus.r * setbus.r);
+        else return (true);
+
+        /*console.log("a:");console.log(min);
+        console.log("car:"); console.log(car.position);*/
+      }
+
+      function checktoutch2(i) {
+        var pos = [4];
+        pos[0] = car.localToWorld(new THREE.Vector3(20, 0, 10));
+        pos[1] = car.localToWorld(new THREE.Vector3(-20, 0, -10));
+        pos[2] = car.localToWorld(new THREE.Vector3(-20, 0, 10));
+        pos[3] = car.localToWorld(new THREE.Vector3(20, 0, -10));
+        pos[4] = car.localToWorld(new THREE.Vector3(-20, 0, 0));
+        pos[5] = car.localToWorld(new THREE.Vector3(20, 0, 0));
+        for (var j = 0; j < 6; j++) {
+          if ((pos[j].x - setbus[i].x) * (pos[j].x - setbus[i].x) + (pos[j].z - setbus[i].z) * (pos[j].z - setbus[i].z) <= setbus[i].r * setbus[i].r)
+            return true;
+        }
+        return false;
+      }
+
+      function check() {
+        if (speed < -0.5) speed = -0.5;
+        else if (speed > 2) speed = 2;
+        if (car.position.x > 190) {
+          car.position.x = 190;
+          speed = 0;
+        } else if (car.position.x < -190) {
+          car.position.x = -190;
+          speed = 0;
+        }
+        if (car.position.z > 190) {
+          car.position.z = 190;
+          speed = 0;
+        } else if (car.position.z < -190) {
+          car.position.z = -190;
+          speed = 0;
+        }
+        var ny = 0;
+        for (var i = 1; i < 11; i++) {
+          if (checktoutch2(i)) {
+            ny = 1;
+            //console.log("1231313");
+            break;
+          }
+        }
+        if (!ny) ny2 = 0;
+        if (ny && speed < 0 && !ny2) speed = 0, ny2 = 1;
+        else if (ny && speed > 0 && !ny2) speed = 0, ny2 = 2;
+
+      }
+
+      function animate() {
+        keyboard.update();
+        var vector = new THREE.Vector3(0, 1, 0);
+        if (keyboard.pressed("up") && ny2 != 2) speed += 0.01;
+        if (keyboard.pressed("down") && ny2 != 1) speed -= 0.01;
+        if (keyboard.pressed("left") && speed != 0) car.rotation.y += 0.03;
+        if (keyboard.pressed("right") && speed != 0) car.rotation.y -= 0.03;
+        if (keyboard.pressed("S")) {
+          speedch();
+        }
+        check();
+        car.position.add((new THREE.Vector3(speed, 0, 0).applyAxisAngle(vector, car.rotation.y)));
+
+        requestAnimationFrame(animate);
+        render();
+        //console.log(car.position.x+" "+car.position.y+" "+car.position.z);
+
+      }
+
+      function render() {
+        renderer.clear();
+        let WW = window.innerWidth;
+        let HH = window.innerHeight;
+        renderer.setViewport(0, 0, WW / 2, HH);
+        camera.aspect = WW / 2 / HH;
+        camera.updateProjectionMatrix();
+        camera.position.copy(car.localToWorld(new THREE.Vector3(-80, 40, 0)));
+        camera.lookAt(car.position);
+        renderer.render(scene, camera);
+        ///////////////////////////////
+        renderer.setViewport(WW / 2, 0, WW / 2, HH);
+        camera2.position.set(car.position.x, 20, car.position.z);
+        camera2.up.set(0, 0, -1);
+        camera2.lookAt(car.position);
+        renderer.render(scene, camera2);
+
+      }
+
+    </script>
+  </body>
+
+</html>
