@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+<style>
+	body {
+	  background-color: #fff;
+	  color: #111;
+	  margin: 0px;
+	  overflow: hidden;
+	  font-family: Monospace;
+	  font-size: 20px;
+	  position: absolute;
+	}
+  
+	#info {
+	  position: absolute;
+	  top: 0px;
+	  width: 100%;
+	  padding: 5px;
+	  text-align: center;
+	  color: #ffff00
+	}
+
+
+</style>
+</head>
+
+<body> 
+<div id="info">
+
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/109/three.min.js"></script>
+<script src="https://threejs.org/examples/js/controls/OrbitControls.js">
+</script>
+
+<script src="https://raw.githack.com/mrdoob/three.js/master/examples/js/utils/BufferGeometryUtils.js"></script>
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="https://raw.githack.com/mrdoob/three.js/dev/examples/js/loaders/MTLLoader.js"></script>
+    <script src="https://raw.githack.com/mrdoob/three.js/dev/examples/js/loaders/OBJLoader.js"></script>
+<script src="https://raw.githack.com/mrdoob/three.js/dev/examples/js/geometries/TeapotBufferGeometry.js"></script>
+
+<script id="vs-mosaic" type="x-shader/x-vertex">
+  varying vec2 vUv; 
+  void main() { 
+      gl_Position = projectionMatrix* modelViewMatrix * vec4( position, 1.0); 
+      vUv = uv; 
+  }
+</script>
+<script id="fs-mosaic" type="x-shader/x-fragment">
+  uniform sampler2D texture; 
+  varying vec2 vUv; 
+  uniform float gran;
+  vec2 vUvm;
+  uniform vec2 headNDC;
+  uniform float headSize;
+
+  void main() {
+    float d = distance (headNDC, vUv);
+    float borderWidth = headSize*0.1; 
+    if (d < headSize) {
+  	  vUvm = floor (vUv/gran)*gran;     
+  		gl_FragColor = texture2D(texture, vUvm); 
+    } else if (d < headSize+borderWidth) {
+       gl_FragColor = vec4(1,0,0,1);
+    } else {
+      vUvm = vUv;
+        	gl_FragColor = texture2D(texture, vUvm); 
+    }
+   }
+
+/*
+void main() {
+  gl_FragColor = texture2D (texture, vUv);
+}
+*/
+</script>
+
+<script>
+var scene, renderer, camera;
+var material_shh;
+var sceneRTT, cameraRTT;
+var renderTarget;
+var subject;
+var angle = 0,whichloder =1,theObject,theObject2 ,subject ;
+var leg1,leg2,arm1,arm2,legmove,angles=0,ushape,light;
+init();
+animate();
+
+function init() {
+  renderer = new THREE.WebGLRenderer({
+    antialias: true
+  });
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  document.body.appendChild(renderer.domElement);
+  renderer.setClearColor(0x888888);
+
+  scene = new THREE.Scene();
+
+  camera = new THREE.PerspectiveCamera(80, window.innerWidth / window.innerHeight, 1, 1000);
+  //camera.position.y = 80;
+  camera.position.z = 100;
+  camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+  let controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+  window.addEventListener('resize', onWindowResize, false);
+
+  ///////////////////////////////////////////////////////
+  scene0 = new THREE.Scene();
+  scene0.add (new THREE.GridHelper (400,20,'red','white'));
+  subject = new THREE.Group();
+  torso = new THREE.Mesh (new THREE.CylinderGeometry (5,5,20), new THREE.MeshNormalMaterial());
+  torso.position.y = 20;
+  //torso.position.z = 80;
+  head = new THREE.Mesh (new THREE.SphereGeometry(5,10,10), new THREE.MeshNormalMaterial());
+  head.position.y = 40;
+  //head.position.z = 80;
+  nose = new THREE.Mesh (new THREE.CylinderGeometry(0,8,10), new THREE.MeshNormalMaterial());
+  nose.position.set (0,40,0);
+  nose.rotation.x = Math.PI/2;
+  
+  subject.add (nose, head, torso);
+  scene0.add (subject);
+
+  renderTarget = new THREE.WebGLRenderTarget(1024,1024);//256,256); 
+
+  ///////////////////////////////////////////////////////
+  ///////////////////////////////////////////////////////////////////////
+
+  var uniforms = {
+    headNDC: {
+      type: 'v2',
+      value: null
+    },
+    texture: {
+      type: 't',
+      value: renderTarget.texture
+    }, 
+    gran: {
+    	type: 'f',
+      value: 0
+    },
+        headSize: {
+     type: 'f',
+     value: 0
+    },
+  };
+
+
+	var vertShader = document.getElementById('vs-mosaic').innerHTML;
+  var fragShader = document.getElementById('fs-mosaic').innerHTML;
+	material_shh = new THREE.ShaderMaterial({
+    uniforms: uniforms,
+    vertexShader: vertShader,
+    fragmentShader: fragShader
+  });
+
+  plane = new THREE.Mesh (new THREE.PlaneGeometry (100,100), material_shh );
+  camera0 = new THREE.OrthographicCamera (-50,50,50,-50, -100,100);  
+  light = new THREE.PointLight ();
+  scene0.add (light);
+ scene0.add (new THREE.PointLightHelper (light,5));
+  scene.add (plane);
+/////
+
+   theObject =  new THREE.Object3D();
+  theObject2=  new THREE.Object3D();
+  readModel2('face',80); 
+  lodertable();
+ loderpenbox();
+ pen();
+
+
+  readModel('WoodChair',60);
+  readModel('lamp',40); 
+len();
+}
+
+function onWindowResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function pen(){
+  let loader = new THREE.TextureLoader();
+  loader.crossOrigin = '';	
+  let treadTex = loader.load('https://i.imgur.com/cCjirzS.jpg');
+  let Material = new THREE.MeshPhongMaterial({
+    map: treadTex,
+    side: THREE.DoubleSide
+  });
+  let treadTex2 = loader.load('https://i.imgur.com/u2TQzO7.jpg');
+  let Material2 = new THREE.MeshPhongMaterial({
+    map: treadTex2,
+    side: THREE.DoubleSide
+  });
+  treadTex = loader.load('https://i.imgur.com/iXsKT9H.png');
+  let Material3 = new THREE.MeshPhongMaterial({
+    map: treadTex,
+    side: THREE.DoubleSide
+  });
+  var p = new THREE.Mesh(new THREE.CylinderBufferGeometry(1,1, 15, 20), Material);
+  
+  var cone = new THREE.Mesh( new THREE.ConeBufferGeometry( 1, 4, 32 ), Material2 );
+  cone.position.y=9.5;
+  p.add( cone );
+  scene0.add(p);
+  p.rotation.z=Math.PI/8;
+  p.position.set(-108.1,40,20);
+
+  var p2 = new THREE.Mesh(new THREE.CylinderBufferGeometry(1,1, 15, 20), Material);
+  var cone2 = new THREE.Mesh( new THREE.ConeBufferGeometry( 1, 4, 32 ), Material3 );
+  cone2.position.y=9.5;
+  p2.add( cone2 );
+  scene0.add(p2);
+  p2.rotation.x=Math.PI/7;
+  p2.rotation.z=Math.PI/8;
+  p2.position.set(-106,40,23);
+}
+
+function loderpenbox(){
+	let loader = new THREE.TextureLoader();
+  loader.crossOrigin = '';
+  let treadTex = loader.load('https://i.imgur.com/w8az8XY.jpg');
+  let alpha = loader.load('https://i.imgur.com/uIOXJ2D.png');
+  treadTex.repeat.set(1, 1)
+  treadTex.wrapS = THREE.RepeatWrapping
+  let treadMat = new THREE.MeshPhongMaterial({
+    map: treadTex,
+    alphaMap: alpha,
+    transparent: true,
+    side: THREE.DoubleSide
+  });
+  let treadMat2 = new THREE.MeshPhongMaterial({
+    map: treadTex,
+    side: THREE.DoubleSide
+  });
+  let geometry2 = new THREE.CylinderGeometry(5, 5, 10, 80, 2, true);
+  let tread2 = new THREE.Mesh(geometry2,treadMat );
+  let dot = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 1, 20),treadMat2 )
+  dot.position.set(0,-4,0);
+  tread2.add(dot); 
+  tread2.position.set(-105,37,20);
+  scene0.add(tread2);
+
+
+}
+
+  function lodertable(){
+    let loader = new THREE.TextureLoader();
+    loader.crossOrigin = '';
+    let matArray=new THREE.MeshPhongMaterial({
+      map: loader.load('https://i.imgur.com/PZWNrd2.jpg'),
+      side: THREE.DoubleSide});
+    var box = new THREE.Mesh(new THREE.BoxGeometry(50, 5, 100), matArray);
+    box.position.set(-110, 30, 0);
+    scene0.add(box);
+    var part = [];
+    for(var i=0;i<4;i++){
+          part[i] = new THREE.Mesh(new THREE.CylinderBufferGeometry(3,2, 30, 64), matArray);
+          var circle = new THREE.Mesh(new THREE.DodecahedronGeometry(3,5),matArray);
+          circle.position.y-=10;
+          part[i].add(circle);
+      		scene0.add(part[i]);
+    }
+
+    part[0].position.set(-131.5,15,-46.5);
+    part[1].position.set(-131.5,15,46.5);
+    part[2].position.set(-88.5,15,-46.5);
+    part[3].position.set(-88.5,15,46.5);
+   /* var wall1 = new THREE.Mesh(new THREE.BoxGeometry(400, 100, 5), matArray);
+    wall1.position.set(0,50,200);
+    scene0.add(wall1);*/
+    var wall2 = new THREE.Mesh(new THREE.BoxGeometry(400, 100, 5), matArray);
+    wall2.position.set(0,50,-200);
+    scene0.add(wall2);
+    var wall3 = new THREE.Mesh(new THREE.BoxGeometry(400, 100, 5), matArray);
+    wall3.position.set(200,50,0);
+    wall3.rotation.y+=Math.PI/2;
+    scene0.add(wall3);
+    var wall4 = new THREE.Mesh(new THREE.BoxGeometry(400, 100, 5), matArray);
+    wall4.position.set(-200,50,0);
+    wall4.rotation.y+=Math.PI/2;
+    scene0.add(wall4);
+}
+function len(){
+   var material = new THREE.MeshPhongMaterial({
+      color: "rgb(135, 102, 0)" ,
+      side: THREE.DoubleSide 
+    });
+    var materials = new THREE.MeshPhongMaterial({
+      color: "rgb(168, 142, 64)" ,
+      side: THREE.DoubleSide 
+    });
+    var base = new THREE.Mesh(new THREE.BoxGeometry(50, 30, 30), material);
+    base.position.set(50, 70, 0);
+    
+    var geometry = new THREE.CircleBufferGeometry(3, 32);
+    var cymaterial = new THREE.MeshPhongMaterial({
+      color: "black" ,
+      side: THREE.DoubleSide 
+    });
+    circle = new THREE.Mesh(geometry, cymaterial);
+    circle.position.set(40, 73, 16);
+    circle1 = new THREE.Mesh(geometry, cymaterial);
+    circle1.position.set(60, 73, 16);  
+    var ge = new THREE.CircleBufferGeometry(5, 1);
+    circle2 = new THREE.Mesh(ge, cymaterial);
+    circle2.position.set(50, 65, 16);
+    circle2.rotation.z=1.55;
+    
+    var base2 = new THREE.Mesh(new THREE.BoxGeometry(25, 40, 25), material);
+    base2.position.set(50, 40, 0);
+    
+    arm1 = new THREE.Mesh(new THREE.BoxGeometry(10, 40, 10), material);
+    arm1.position.set(28, 40, 0);
+    arm1.rotation.z=-0.4;
+    arm2 = new THREE.Mesh(new THREE.BoxGeometry(10, 40, 10), material);
+    arm2.position.set(72, 40, 0);
+    arm2.rotation.z=0.4;
+    
+    leg1 = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 10), material);
+    leg1.position.set(43, 10, 0);
+    leg2 = new THREE.Mesh(new THREE.BoxGeometry(10, 20, 10), material);
+    leg2.position.set(57, 10, 0);
+    
+    var c1 = new THREE.Mesh(new THREE.BoxGeometry(10, 0, 25), materials);
+    c1.position.set(62, 20, 0);
+    c1.rotation.z=-0.7;
+    var c2 = new THREE.Mesh(new THREE.BoxGeometry(10, 0, 25), materials);
+    c2.position.set(35, 20, 0);
+    c2.rotation.z=0.7;
+    var c3 = new THREE.Mesh(new THREE.BoxGeometry(25, 0, 10), materials);
+    c3.position.set(50, 20, 15);
+    c3.rotation.x=0.7;
+    var c4 = new THREE.Mesh(new THREE.BoxGeometry(25, 0, 10), materials);
+    c4.position.set(50, 20, -15);
+    c4.rotation.x=-0.7;
+    ushape = new THREE.Group();
+    ushape.add(base);  
+    ushape.add(base2); 
+    ushape.add(circle);  
+    ushape.add(circle1); 
+    ushape.add(circle2);
+    ushape.add(arm1); 
+    ushape.add(arm2); 
+    ushape.add(leg1); 
+    ushape.add(leg2); 
+    ushape.add(c1); 
+    ushape.add(c2); 
+    ushape.add(c3);
+    ushape.add(c4);
+    ushape.position.x+=100;
+    scene0.add(ushape);
+}
+ function readModel (modelName, targetSize) {
+  var onProgress = function(xhr) {
+    if (xhr.lengthComputable) {
+      var percentComplete = xhr.loaded / xhr.total * 100;
+      console.log(Math.round(percentComplete, 2) + '% downloaded');
+    }
+  };
+
+  var onError = function(xhr) {};
+
+  var mtlLoader = new THREE.MTLLoader();
+  mtlLoader.setPath('models/');
+  mtlLoader.load(modelName+'.mtl', function(materials) {
+
+    materials.preload();
+
+    var objLoader = new THREE.OBJLoader();
+    objLoader.setMaterials(materials);
+    objLoader.setPath('models/');
+    objLoader.load(modelName+'.obj', function(object) {
+		
+		theObject =  unitize (object, targetSize);
+		//theObject.add ( new THREE.BoxHelper (theObject) )
+		theObject.name = 'OBJ'
+		scene0.add(theObject);
+		theObject.castShadow = true
+  		theObject.receiveShadow = true
+		theObject.setRotationFromEuler (new THREE.Euler (3.1416/2, 0, -3.1416/2, 'ZYX'))
+		
+    }, onProgress, onError);
+
+  });
+
+
+}
+
+
+////////////////////////////////////////
+// wrap an Object3D around the given object
+// so that it is centered at +Y axis
+// 
+function unitize (object, targetSize) {  
+	
+	// find bounding box of 'object'
+	var box3 = new THREE.Box3();
+	box3.setFromObject (object);
+	var size = new THREE.Vector3();
+	size.subVectors (box3.max, box3.min);
+	var center = new THREE.Vector3();
+	center.addVectors(box3.max, box3.min).multiplyScalar (0.5);
+	
+	console.log ('center: ' + center.x + ', '+center.y + ', '+center.z );
+	console.log ('size: ' + size.x + ', ' +  size.y + ', '+size.z );
+	
+	// uniform scaling according to objSize
+	var objSize = Math.max (size.x, size.y, size.z);
+	var scaleSet = targetSize/objSize;
+				
+	
+	theObject.add (object);
+	object.scale.set (scaleSet, scaleSet, scaleSet);
+        //console.log(whichloder);
+	object.traverse( function ( child ) {
+
+    	if ( child instanceof THREE.Mesh ) {
+
+           child.castShadow = true;
+	   child.receiveShadow = true
+    	}
+
+	} );
+        /*if(whichloder==1){
+	   object.position.set (-center.x*scaleSet-25, -center.y*scaleSet+5, -center.z*scaleSet);
+	   object.rotation.x-=Math.PI/2;
+	   object.rotation.z+=Math.PI/2;
+           whichloder=2;
+	   
+	}*/
+
+        if(whichloder==1){
+	   object.position.set (-center.x*scaleSet, -center.y*scaleSet, -center.z*scaleSet+110);
+	   object.rotation.x-=Math.PI;
+	   object.rotation.y-=Math.PI/2;
+           whichloder=2;
+	   
+	}
+        else if(whichloder==2){
+		
+	   object.position.set (-center.x*scaleSet-52.5, -center.y*scaleSet+30, -center.z*scaleSet+125);
+	   object.rotation.x+=Math.PI*2/3;
+	   object.rotation.z+=Math.PI/2;
+        }
+
+	return theObject;
+			
+}    
+ function readModel2 (modelName, targetSize) {
+  var onProgress = function(xhr) {
+    if (xhr.lengthComputable) {
+      var percentComplete = xhr.loaded / xhr.total * 100;
+      console.log(Math.round(percentComplete, 2) + '% downloaded');
+    }
+  };
+
+  var onError = function(xhr) {};
+
+  var mtlLoader = new THREE.MTLLoader();
+  mtlLoader.setPath('models/');
+  mtlLoader.load(modelName+'.mtl', function(materials) {
+
+    materials.preload();
+
+    var objLoader = new THREE.OBJLoader();
+    objLoader.setMaterials(materials);
+    objLoader.setPath('models/');
+    objLoader.load(modelName+'.obj', function(object) {
+		
+		theObject =  unitize2 (object, targetSize);
+		//theObject.add ( new THREE.BoxHelper (theObject) )
+		theObject.name = 'OBJ'
+		scene0.add(theObject);
+
+		theObject.setRotationFromEuler (new THREE.Euler (3.1416/2, 0, -3.1416/2, 'ZYX'))
+		
+    }, onProgress, onError);
+
+  });
+
+
+}
+
+
+////////////////////////////////////////
+// wrap an Object3D around the given object
+// so that it is centered at +Y axis
+// 
+function unitize2 (object2, targetSize) {  
+	
+	// find bounding box of 'object'
+	var box3 = new THREE.Box3();
+	box3.setFromObject (object2);
+	var size = new THREE.Vector3();
+	size.subVectors (box3.max, box3.min);
+	var center = new THREE.Vector3();
+	center.addVectors(box3.max, box3.min).multiplyScalar (0.5);
+	
+	console.log ('center: ' + center.x + ', '+center.y + ', '+center.z );
+	console.log ('size: ' + size.x + ', ' +  size.y + ', '+size.z );
+	
+	// uniform scaling according to objSize
+	var objSize = Math.max (size.x, size.y, size.z);
+	var scaleSet = targetSize/objSize;
+				
+	
+	theObject2.add (object2);
+	object2.scale.set (scaleSet, scaleSet, scaleSet);
+        //console.log(whichloder);
+
+
+	   object2.position.set (-center.x*scaleSet-20, -center.y*scaleSet+10, -center.z*scaleSet);
+	   object2.rotation.x-=Math.PI/2;
+	   //object2.rotation.y-=Math.PI/2;
+           object2.rotation.z+=Math.PI/2;
+	   
+	
+
+
+	return theObject2;
+			
+}   
+function animate() {
+/*
+	material_shh.uniforms.gran.value = gcontrols.gran;
+	if (gcontrols.mosaic === false)
+		material_shh.uniforms.gran.value = 1;  // finest gran
+*/
+  requestAnimationFrame(animate);
+  
+  // compute headNDC
+  var headCenter = new THREE.Vector3(0,40,0);
+  subject.localToWorld (headCenter);
+  var noseTip = new THREE.Vector3(0,40,-10);
+  subject.localToWorld (noseTip);
+var headTop = new THREE.Vector3(0,40+15,0);
+  subject.localToWorld (headTop);
+  headCenter.applyMatrix4 (camera.matrixWorldInverse).applyMatrix4 (camera.projectionMatrix);
+  material_shh.uniforms.headNDC.value = new THREE.Vector2 ((headCenter.x+1)/2, (headCenter.y+1)/2);
+  noseTip.applyMatrix4 (camera.matrixWorldInverse).applyMatrix4 (camera.projectionMatrix);
+  if (noseTip.z - headCenter.z > 0) {
+  	//console.log ('face forward')
+       
+   headTop.applyMatrix4 (camera.matrixWorldInverse).applyMatrix4 (camera.projectionMatrix);
+  material_shh.uniforms.gran.value = 0.01;
+  material_shh.uniforms.headSize.value = 1.2 * headTop.distanceTo(headCenter)/2;
+  
+  }  else{
+    //console.log ('backward');
+     material_shh.uniforms.gran.value = 0.0
+     material_shh.uniforms.headSize.value = 0
+  }
+  //gle += 0.01; 
+  //subject.position.set (80*Math.cos(angle), 0, -80*Math.sin(angle));  
+  //subject.rotation.y = Math.PI + angle;
+  
+  renderer.setRenderTarget (renderTarget);
+  renderer.render(scene0, camera);
+  
+  renderer.setRenderTarget (null);  
+  renderer.render(scene, camera0);
+  angle += 0.01;
+  light.position.set (150*Math.cos(angle), 80, 150*Math.sin(angle));
+  angles += 0.01;
+  ushape.rotation.y-=0.01; 
+if(legmove){
+     leg1.rotation.x+=0.01;
+     leg2.rotation.x-=0.01;
+     arm1.rotation.x-=0.01;
+     arm2.rotation.x+=0.01;
+  }
+  else {
+     leg1.rotation.x-=0.01;
+     leg2.rotation.x+=0.01;
+     arm1.rotation.x+=0.01;
+     arm2.rotation.x-=0.01;
+   }
+   if(leg1.rotation.x>=Math.PI/4) legmove=!legmove;
+   if(leg1.rotation.x<=-Math.PI/4) legmove=!legmove;
+}
+
+
+</script>
+</body>
+
+</html>
